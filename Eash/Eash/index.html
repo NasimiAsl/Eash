@@ -1,0 +1,101 @@
+﻿<!DOCTYPE html>
+
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <title>Eash Preview</title>
+    <script src="Scripts/babylon.js"></script>
+    <script src="Scripts/Eash.js"></script>
+    <script src="Scripts/Eash.Basic.js"></script>
+
+    <style>
+        html, body {
+            overflow: hidden;
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+
+        #renderCanvas {
+            width: 100%;
+            height: 100%;
+            touch-action: none;
+        }
+
+        .hdn {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="renderCanvas"></canvas>
+    <div id="shaders" class="hdn"></div>
+    <script>
+        var canvas = document.getElementById("renderCanvas");
+        var engine = new BABYLON.Engine(canvas, true);
+        var camera;
+        var createScene = function () {
+
+            // This creates a basic Babylon Scene object (non-mesh)
+            var scene = new BABYLON.Scene(engine);
+
+            // This creates and positions a free camera (non-mesh)
+            camera = new BABYLON.FreeCamera("camera1", new BABYLON.Vector3(0, 5, -10), scene);
+
+            // This targets the camera to scene origin
+            camera.setTarget(BABYLON.Vector3.Zero());
+
+            // This attaches the camera to the canvas
+            camera.attachControl(canvas, true);
+
+            // This creates a light, aiming 0,1,0 - to the sky (non-mesh)
+            var light = new BABYLON.HemisphericLight("light1", new BABYLON.Vector3(0, 1, 0), scene);
+
+            // Default intensity is 1. Let's dim the light a small amount
+            light.intensity = 0.7;
+
+            // Our built-in 'sphere' shape. Params: name, subdivs, size, scene
+            var sphere = BABYLON.Mesh.CreateSphere("sphere1", 16, 2, scene);
+            sphere.material =eash.shader( eash.range({
+                mat1:eash.map({ ref1: '/images/s.jpg' ,t1:'time*0.002'}),
+                mat2:eash.solid(0x000000,0.0),
+                dir:'pos.x',
+                start:0,
+                end:2})
+                + eash.alpha()+eash.back(eash.discard)  , scene);
+            // Move the sphere upward 1/2 its height
+            sphere.position.y = 1;
+
+            // Our built-in 'ground' shape. Params: name, width, depth, subdivs, scene
+            var ground = BABYLON.Mesh.CreateGround("ground1", 6, 6, 2, scene);
+
+            return scene;
+
+        };
+
+        var scene = createScene();
+        time = 0;
+        engine.runRenderLoop(function () {
+
+            for (ms in scene.meshes) {
+                var it = scene.meshes[ms];
+                if (def(it.material)) {
+                    it.material.setVector2("screen", { x: canvas.width, y: canvas.height });
+                    it.material.setVector2("mouse", { x: 0, y: 0 });
+                    it.material.setVector3("camera", camera.position);
+                    it.material.setFloat("time", time++);
+                }
+            }
+
+            scene.render();
+
+        });
+
+        // Resize
+        window.addEventListener("resize", function () {
+            engine.resize();
+        });
+    </script>
+</body>
+</html>
