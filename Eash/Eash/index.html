@@ -7,7 +7,7 @@
     <script src="Scripts/babylon.js"></script>
     <script src="Scripts/Eash.js"></script>
     <script src="Scripts/Eash.Basic.js"></script>
-
+    <script src="Scripts/Eash.Postprocess.js"></script>
     <style>
         html, body {
             overflow: hidden;
@@ -23,6 +23,8 @@
             touch-action: none;
         }
 
+
+
         .hdn {
             display: none;
         }
@@ -35,6 +37,7 @@
         var canvas = document.getElementById("renderCanvas");
         var engine = new BABYLON.Engine(canvas, true);
         var camera;
+        var ef;
         var createScene = function () {
 
             // This creates a basic Babylon Scene object (non-mesh)
@@ -57,18 +60,43 @@
 
             // Our built-in 'sphere' shape. Params: name, subdivs, size, scene
             var sphere = BABYLON.Mesh.CreateSphere("sphere1", 16, 2, scene);
-            sphere.material =eash.shader( eash.range({
-                mat1:eash.map({ ref1: '/images/s.jpg' ,t1:'time*0.002'}),
-                mat2:eash.solid(0x000000,0.0),
-                dir:'pos.x',
-                start:0,
-                end:2})
-                + eash.alpha()+eash.back(eash.discard)  , scene);
+            sphere.material = eash.shader(eash.range({
+                mat1: eash.map({ ref1: '/images/s.jpg', t1: 'time*0.002' }),
+                mat2: eash.solid(0x000000, 0.0),
+                dir: 'pos.x',
+                start: 0,
+                end: 2
+            })
+                + eash.alpha() + eash.back(eash.discard) + eash.fresnel({ f: 1. }), scene);
             // Move the sphere upward 1/2 its height
             sphere.position.y = 1;
 
             // Our built-in 'ground' shape. Params: name, width, depth, subdivs, scene
             var ground = BABYLON.Mesh.CreateGround("ground1", 6, 6, 2, scene);
+            ground.material = eash.shader(eash.solid(0xff0000), scene);
+
+            //eash.linerPostProcess(eash.filters.pointedBlur({ r: 0.5, d: 0.005 }), camera, 0.2);
+            eash.linerPostProcess(
+                eash.range({
+                    mat1:
+                        eash.range({
+                        mat1: eash.cameraShot({ uv: 'uv ' }),
+                        mat2:
+                            eash.pointedBlur({ r: 4.5, d: 0.0025, l: 0.35 }) +
+                            eash.pointedBlur({ r: 3.5, d: 0.0025, l: 0.35 }) +
+                            eash.pointedBlur({ r: 2.5, d: 0.0025, l: 0.35 }) +
+                           ' result = vec4(vec3(pow(length(result.xyz),5.0) ),1.0);'
+                       , start: 5, end: 51, dir: ' -fw*100.'
+                        })
+                    ,
+                   mat2:
+                     eash.cameraShot({ uv: eash.filters.glassWave() }) 
+                      , start: 10, end: 31, dir: 'fw*100.'
+                }),
+
+                 camera, 1.0);
+            //eash.linerPostProcess(eash.pointedBlur({ r: 3.5, d: 0.0025,l:0.5}), camera, 0.17);
+            //eash.linerPostProcess(eash.pointedBlur({ r: 2.5, d: 0.0025,l:0.5}), camera, 0.17); 
 
             return scene;
 
@@ -77,16 +105,17 @@
         var scene = createScene();
         time = 0;
         engine.runRenderLoop(function () {
-
+            time++;
             for (ms in scene.meshes) {
                 var it = scene.meshes[ms];
-                if (def(it.material)) {
+                if (def(it.material) && it.material.isEashMaterial) {
                     it.material.setVector2("screen", { x: canvas.width, y: canvas.height });
                     it.material.setVector2("mouse", { x: 0, y: 0 });
                     it.material.setVector3("camera", camera.position);
-                    it.material.setFloat("time", time++);
+                    it.material.setFloat("time", time);
                 }
             }
+
 
             scene.render();
 

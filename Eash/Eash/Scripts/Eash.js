@@ -24,6 +24,13 @@ function _cs(i) {
 var False = false;
 var True = true;
 
+String.prototype.trim = function () {
+    return this.replace(/^\s+|\s+$/gm, '');
+}
+
+String.prototype.replaceAll = function (str1, str2, ignore) {
+    return this.replace(new RegExp(str1.replace(/([\/\,\!\\\^\$\{\}\[\]\(\)\.\*\+\?\|\<\>\-\&])/g, "\\$&"), (ignore ? "gi" : "g")), (typeof (str2) == "string") ? str2.replace(/\$/g, "$$$$") : str2);
+}
 
 
 
@@ -63,22 +70,22 @@ var eash = {
         function defTexture(txop, name) {
 
             if (!txop) return;
-             
+
             refname = name;
-            var tx; 
+            var tx;
 
             if (txop.dy) {
                 var jpegUrl = txop.dy.toDataURL("image/jpeg");
-                tx = new BABYLON.Texture(jpegUrl,  scene);
+                tx = new BABYLON.Texture(jpegUrl, scene);
             }
 
             else if (txop.embed) {
-                tx = new BABYLON.Texture(txop.embed,  scene, true,
+                tx = new BABYLON.Texture(txop.embed, scene, true,
                                                                true, BABYLON.Texture.BILINEAR_SAMPLINGMODE,
                                                                null, null, txop.embed, true);
             }
             else {
-                tx = new BABYLON.Texture(txop,  scene);
+                tx = new BABYLON.Texture(txop, scene);
             }
 
             shaderMaterial.setTexture(refname, tx);
@@ -97,8 +104,8 @@ var eash = {
 
             var tx;
 
-            if (txop ) {
-                tx = new BABYLON.CubeTexture(txop ,  scene);
+            if (txop) {
+                tx = new BABYLON.CubeTexture(txop, scene);
 
                 tx.coordinatesMode = BABYLON.Texture.PLANAR_MODE;
             }
@@ -196,6 +203,42 @@ var eash = {
         },
     },
 
+    postProcessBase: {
+        vertex: function (fun, hp, ops, id, sysid) {
+            ops = def(ops, [eash.sh_global(), hp, eash.sh_uniform_postProcess() , eash.sh_tools(), eash.sh_main_vertex_postprocess(fun, id, sysid)]);
+            return ops.join('\n');
+        },
+        fragment: function (fun, hp, ops, id, sysid) {
+            ops = def(ops, [eash.sh_global(), hp, eash.sh_uniform_postProcess() , eash.sh_tools(), eash.sh_main_fragment(fun, id, sysid)]);
+            return ops.join('\n');
+        },
+        postProcess: function (op) {
+            var shaderMaterial;
+
+            if (op && !op.u) {
+                op.u = {
+                    attributes: ["position"],
+                    uniforms: ["view", "world", "worldView", "viewProjection", "worldViewProjection"]
+                };
+            }
+            eash.shdrIndex++;
+
+            var vtx = op.vtx;
+            var frg = op.frg;
+
+            op.vtx = "sh_v_" + eash.shdrIndex;
+            op.frg = "sh_f_" + eash.shdrIndex;
+
+
+            BABYLON.Effect.ShadersStore[op.frg + "PixelShader"] = eash.postProcessBase.fragment(frg, op.helper, op.frgops, def(op.id, 0), def(op.sysId, 0)).replace('#extension GL_OES_standard_derivatives : enable',' ').replaceAll("\n", "  ").replaceAll("\t", "    ");
+
+            BABYLON.Effect.ShadersStore["postprocessVertexShader"] = eash.postProcessBase.vertex(vtx, op.helper, op.vtxops, def(op.id, 0), def(op.sysId, 0)).replaceAll("\n", "  ").replaceAll("\t", "    ");
+
+
+            return op.frg;
+        },
+    },
+
     isDebug: false,
 
     sh_global: function () {
@@ -231,6 +274,26 @@ var eash = {
             "uniform mat4 view;"
         ].join('\n');
     },
+    sh_uniform_postProcess: function () {
+        return [
+            "uniform sampler2D textureSampler; ",
+            "uniform vec3 camera;",
+            "uniform vec2 mouse; ",
+            "uniform float time; ",
+            "uniform vec2 screen; ",
+            "uniform vec3 glb; ",
+            "uniform vec3 center; ",
+            "uniform sampler2D ref1; ",
+            "uniform sampler2D ref2; ",
+            "uniform sampler2D ref3; ",
+            "uniform sampler2D ref4; ",
+            "uniform sampler2D ref5; ",
+            "uniform sampler2D ref6; ",
+            "uniform sampler2D ref7; ",
+
+            "varying vec2 uv;    ",
+        ].join('\n');
+    }, 
     sh_varing: function () {
         return [
             "varying vec3 pos;  ",
@@ -282,6 +345,16 @@ var eash = {
             "}"
         ].join('\n');
     },
+    sh_main_vertex_postprocess: function (content, id, sysid) {
+        return [
+            " attribute vec2 position; ",
+            "                                ",
+            " void main(void) {	                            ",
+            "     uv = position*0.5+vec2(0.5,0.5);        ",
+            "     gl_Position = vec4(position,0., 1.0);     ",
+            " } "
+        ].join('  ');
+    },
 
     sh_main_fragment: function (content, id, sysid) {
         return [
@@ -289,12 +362,19 @@ var eash = {
 
             "void main(void) { ",
             "   vec4 result;vec4  ref; result = vec4(1.,0.,0.,0.);",
+            "   float fw = (gl_FragCoord.x-screen.x/2.0)/(screen.x/2.0) ;",
+            "   float fh = (gl_FragCoord.y-screen.y/2.0)/(screen.y/2.0) ;",
+            "   float mw = (mouse.x-screen.x/2.0)/(screen.x/2.0) ;",
+            "   float mh = (mouse.y-screen.y/2.0)/(screen.y/2.0) ;",
+
             "   ",
             content,
               "   gl_FragColor = vec4( result );",
             "}"
         ].join('\n');
     },
+
+     
 
 
     shader: function (op, scene) {
@@ -318,6 +398,27 @@ var eash = {
         mat.isEashMaterial = true;
         return mat;
     },
+
+
+
+
+    linerPostProcess: function (op, camera, scale) {
+
+        var name = eash.postProcessBase.postProcess({
+            frg: op,
+            helper: ''
+        });
+        eash.ind++;
+        var postProcess1 = new BABYLON.PostProcess("name" + eash.ind, name, ["camera", "mouse", "time", "screen", "glb", "center", "ref1", "ref2", "ref3", "ref4", "ref5", "ref6", "ref7"], null, def(scale, 1.0), camera, BABYLON.Texture.BILINEAR_SAMPLINGMODE);
+        postProcess1.onApply = function (effect) {
+            effect.setFloat('time', time);
+            effect.setVector2("screen", { x: postProcess1.width, y: postProcess1.height });
+            effect.setVector3("camera", camera.position);
+        };
+
+        return postProcess1;
+
+    }
 
 };
 
@@ -751,12 +852,6 @@ ColorPs = {
     toArray: function () {
 
         return [this.r, this.g, this.b];
-
-    },
-
-    clone: function () {
-
-        return new THREE.Color().setRGB(this.r, this.g, this.b);
 
     }
 

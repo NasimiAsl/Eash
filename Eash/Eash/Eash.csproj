@@ -25,6 +25,7 @@
     <Content Include="Scripts\babylon.js" />
     <Content Include="Scripts\Eash.js" />
     <Content Include="Scripts\Eash.Basic.js" />
+    <Content Include="Scripts\Eash.Postprocess.js" />
     <Content Include="web.config" />
   </ItemGroup>
   <ItemGroup>
