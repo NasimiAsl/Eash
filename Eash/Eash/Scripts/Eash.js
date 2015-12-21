@@ -205,11 +205,11 @@ var eash = {
 
     postProcessBase: {
         vertex: function (fun, hp, ops, id, sysid) {
-            ops = def(ops, [eash.sh_global(), hp, eash.sh_uniform_postProcess() , eash.sh_tools(), eash.sh_main_vertex_postprocess(fun, id, sysid)]);
+            ops = def(ops, [eash.sh_global(), hp, eash.sh_uniform_postProcess(), eash.sh_tools(), eash.sh_main_vertex_postprocess(fun, id, sysid)]);
             return ops.join('\n');
         },
         fragment: function (fun, hp, ops, id, sysid) {
-            ops = def(ops, [eash.sh_global(), hp, eash.sh_uniform_postProcess() , eash.sh_tools(), eash.sh_main_fragment(fun, id, sysid)]);
+            ops = def(ops, [eash.sh_global(), hp, eash.sh_uniform_postProcess(), eash.sh_tools(), eash.sh_main_fragment(fun, id, sysid)]);
             return ops.join('\n');
         },
         postProcess: function (op) {
@@ -230,7 +230,7 @@ var eash = {
             op.frg = "sh_f_" + eash.shdrIndex;
 
 
-            BABYLON.Effect.ShadersStore[op.frg + "PixelShader"] = eash.postProcessBase.fragment(frg, op.helper, op.frgops, def(op.id, 0), def(op.sysId, 0)).replace('#extension GL_OES_standard_derivatives : enable',' ').replaceAll("\n", "  ").replaceAll("\t", "    ");
+            BABYLON.Effect.ShadersStore[op.frg + "PixelShader"] = eash.postProcessBase.fragment(frg, op.helper, op.frgops, def(op.id, 0), def(op.sysId, 0)).replace('#extension GL_OES_standard_derivatives : enable', ' ').replaceAll("\n", "  ").replaceAll("\t", "    ");
 
             BABYLON.Effect.ShadersStore["postprocessVertexShader"] = eash.postProcessBase.vertex(vtx, op.helper, op.vtxops, def(op.id, 0), def(op.sysId, 0)).replaceAll("\n", "  ").replaceAll("\t", "    ");
 
@@ -293,7 +293,7 @@ var eash = {
 
             "varying vec2 uv;    ",
         ].join('\n');
-    }, 
+    },
     sh_varing: function () {
         return [
             "varying vec3 pos;  ",
@@ -374,7 +374,7 @@ var eash = {
         ].join('\n');
     },
 
-     
+
 
 
     shader: function (op, scene) {
@@ -399,25 +399,69 @@ var eash = {
         return mat;
     },
 
+    pspMultiLayer: [],
+    pspIndex: 0,
+    postProcess_EnableMultiLayer: function (ps, self) {
+        eash.pspIndex++;
+        var ind_i = eash.pspIndex;
+        for (var i = 0; i < ind_i - 1 ; i++) {
+            ps._effect._samplers.push('ref' + (i + 1));
+        }
+        ps.apply = function () {
+
+            if (!this._effect.isReady())
+                return null;
+
+            this._engine.enableEffect(this._effect);
+            this._engine.setState(false);
+            this._engine.setAlphaMode(BABYLON.Engine.ALPHA_DISABLE);
+            this._engine.setDepthBuffer(false);
+            this._engine.setDepthWrite(false);
 
 
+            this._effect._bindTexture("textureSampler", this._textures.data[this._currentRenderTextureInd]);
 
-    linerPostProcess: function (op, camera, scale) {
+            if (this.onApply) {
+                this.onApply(this._effect, this);
+            }
+
+
+            for (var i = 0; i < ind_i - 1 ; i++) {
+
+                this._effect._bindTexture('ref' + (i + 1), eash.pspMultiLayer[i]);
+
+            }
+
+            if (def(self, true)) {
+                eash.pspMultiLayer[ind_i] = (this._textures.data[this._currentRenderTextureInd]);
+            }
+
+            return this._effect;
+        };
+    },
+
+    linerPostProcess: function (source, camera, op) {
+        op = def(op, {});
 
         var name = eash.postProcessBase.postProcess({
-            frg: op,
-            helper: ''
+            frg: source, helper: ''
         });
+
         eash.ind++;
-        var postProcess1 = new BABYLON.PostProcess("name" + eash.ind, name, ["camera", "mouse", "time", "screen", "glb", "center", "ref1", "ref2", "ref3", "ref4", "ref5", "ref6", "ref7"], null, def(scale, 1.0), camera, BABYLON.Texture.BILINEAR_SAMPLINGMODE);
+
+        var postProcess1 = new BABYLON.PostProcess("name" + eash.ind, name, ["camera", "mouse", "time", "screen", "glb", "center"], null, def(op.scale, 1.0), camera, BABYLON.Texture.BILINEAR_SAMPLINGMODE);
+
         postProcess1.onApply = function (effect) {
+
             effect.setFloat('time', time);
             effect.setVector2("screen", { x: postProcess1.width, y: postProcess1.height });
             effect.setVector3("camera", camera.position);
+
+
+
         };
 
         return postProcess1;
-
     }
 
 };

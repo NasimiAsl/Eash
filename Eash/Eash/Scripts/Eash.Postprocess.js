@@ -1,6 +1,14 @@
 ﻿// only for postprocess
+
 eash.cameraShot = function (op) {
+
+    op = def(op, {});
     return "result = vec4(texture2D(textureSampler, " + def(op.uv, 'uv') + ").xyz,1.0) ;"
+};
+
+eash.cameraLayer = function (ind, op) {
+    op = def(op, {});
+    return "result = vec4(texture2D(ref" + ind + ", " + def(op.uv, 'uv') + ").xyz,1.0) ;"
 };
 
 eash.filters = {

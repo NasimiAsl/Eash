@@ -38,6 +38,7 @@
         var engine = new BABYLON.Engine(canvas, true);
         var camera;
         var ef;
+        var ps;
         var createScene = function () {
 
             // This creates a basic Babylon Scene object (non-mesh)
@@ -76,27 +77,24 @@
             ground.material = eash.shader(eash.solid(0xff0000), scene);
 
             //eash.linerPostProcess(eash.filters.pointedBlur({ r: 0.5, d: 0.005 }), camera, 0.2);
-            eash.linerPostProcess(
-                eash.range({
-                    mat1:
-                        eash.range({
-                        mat1: eash.cameraShot({ uv: 'uv ' }),
-                        mat2:
-                            eash.pointedBlur({ r: 4.5, d: 0.0025, l: 0.35 }) +
-                            eash.pointedBlur({ r: 3.5, d: 0.0025, l: 0.35 }) +
-                            eash.pointedBlur({ r: 2.5, d: 0.0025, l: 0.35 }) +
-                           ' result = vec4(vec3(pow(length(result.xyz),5.0) ),1.0);'
-                       , start: 5, end: 51, dir: ' -fw*100.'
-                        })
-                    ,
-                   mat2:
-                     eash.cameraShot({ uv: eash.filters.glassWave() }) 
-                      , start: 10, end: 31, dir: 'fw*100.'
-                }),
 
-                 camera, 1.0);
+
+            eash.postProcess_EnableMultiLayer(eash.linerPostProcess(
+               eash.cameraShot({ uv: 'vec2(1.0)-uv ' })
+               + 'result = vec4(result.x);',
+                camera, { scale: 1.0, isFirst: true }));
+
+            eash.postProcess_EnableMultiLayer(eash.linerPostProcess(
+                     eash.cameraLayer(1)  ,
+              camera, { scale: 1.0 }));
+
+         
+
+
+
+
             //eash.linerPostProcess(eash.pointedBlur({ r: 3.5, d: 0.0025,l:0.5}), camera, 0.17);
-            //eash.linerPostProcess(eash.pointedBlur({ r: 2.5, d: 0.0025,l:0.5}), camera, 0.17); 
+            //eash.linerPostProcess(eash.pointedBlur({ r: 2.5, d: 0.0025,l:0.5}), camera, 0.17);
 
             return scene;
 
