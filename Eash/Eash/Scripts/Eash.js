@@ -401,44 +401,7 @@ var eash = {
 
     pspMultiLayer: [],
     pspIndex: 0,
-    postProcess_EnableMultiLayer: function (ps, self) {
-        eash.pspIndex++;
-        var ind_i = eash.pspIndex;
-        for (var i = 0; i < ind_i - 1 ; i++) {
-            ps._effect._samplers.push('ref' + (i + 1));
-        }
-        ps.apply = function () {
-
-            if (!this._effect.isReady())
-                return null;
-
-            this._engine.enableEffect(this._effect);
-            this._engine.setState(false);
-            this._engine.setAlphaMode(BABYLON.Engine.ALPHA_DISABLE);
-            this._engine.setDepthBuffer(false);
-            this._engine.setDepthWrite(false);
-
-
-            this._effect._bindTexture("textureSampler", this._textures.data[this._currentRenderTextureInd]);
-
-            if (this.onApply) {
-                this.onApply(this._effect, this);
-            }
-
-
-            for (var i = 0; i < ind_i - 1 ; i++) {
-
-                this._effect._bindTexture('ref' + (i + 1), eash.pspMultiLayer[i]);
-
-            }
-
-            if (def(self, true)) {
-                eash.pspMultiLayer[ind_i] = (this._textures.data[this._currentRenderTextureInd]);
-            }
-
-            return this._effect;
-        };
-    },
+    
 
     linerPostProcess: function (source, camera, op) {
         op = def(op, {});
@@ -449,7 +412,7 @@ var eash = {
 
         eash.ind++;
 
-        var postProcess1 = new BABYLON.PostProcess("name" + eash.ind, name, ["camera", "mouse", "time", "screen", "glb", "center"], null, def(op.scale, 1.0), camera, BABYLON.Texture.BILINEAR_SAMPLINGMODE);
+        var postProcess1 = new BABYLON.PostProcess("name" + eash.ind, name, ["camera", "mouse", "time", "screen", "glb", "center"], ["ref1", "ref2", "ref3", "ref4", "ref5", "ref6", "ref7"], def(op.scale, 1.0), camera, BABYLON.Texture.BILINEAR_SAMPLINGMODE);
 
         postProcess1.onApply = function (effect) {
 
@@ -457,8 +420,8 @@ var eash = {
             effect.setVector2("screen", { x: postProcess1.width, y: postProcess1.height });
             effect.setVector3("camera", camera.position);
 
-
-
+            if (def(op.apply))
+                op.apply(effect);
         };
 
         return postProcess1;

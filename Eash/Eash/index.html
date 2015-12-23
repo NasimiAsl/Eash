@@ -39,16 +39,15 @@
         var camera;
         var ef;
         var ps;
+        var renderTarget;
         var createScene = function () {
 
             // This creates a basic Babylon Scene object (non-mesh)
             var scene = new BABYLON.Scene(engine);
 
             // This creates and positions a free camera (non-mesh)
-            camera = new BABYLON.FreeCamera("camera1", new BABYLON.Vector3(0, 5, -10), scene);
+            camera = new BABYLON.ArcRotateCamera("camera1", 5.2, 60., 30., new BABYLON.Vector3(0, 0, 0), scene);
 
-            // This targets the camera to scene origin
-            camera.setTarget(BABYLON.Vector3.Zero());
 
             // This attaches the camera to the canvas
             camera.attachControl(canvas, true);
@@ -60,41 +59,66 @@
             light.intensity = 0.7;
 
             // Our built-in 'sphere' shape. Params: name, subdivs, size, scene
-            var sphere = BABYLON.Mesh.CreateSphere("sphere1", 16, 2, scene);
-            sphere.material = eash.shader(eash.range({
-                mat1: eash.map({ ref1: '/images/s.jpg', t1: 'time*0.002' }),
-                mat2: eash.solid(0x000000, 0.0),
-                dir: 'pos.x',
-                start: 0,
-                end: 2
-            })
-                + eash.alpha() + eash.back(eash.discard) + eash.fresnel({ f: 1. }), scene);
+            var sphere = BABYLON.Mesh.CreateBox("sphere1", 2 , scene);
+            sphere.material = eash.shader(eash.solid(0xffffff) , scene);
             // Move the sphere upward 1/2 its height
-            sphere.position.y = 1;
+            sphere.position.y = 0;
+
+            sphere.helperMaterial = eash.shader(eash.solid(0xffffff), scene);
 
             // Our built-in 'ground' shape. Params: name, width, depth, subdivs, scene
-            var ground = BABYLON.Mesh.CreateGround("ground1", 6, 6, 2, scene);
-            ground.material = eash.shader(eash.solid(0xff0000), scene);
+            var ground = BABYLON.Mesh.CreateBox("sphere1", 3, scene);
+            
+            ground.position.y = 0;
+            ground.scaling.y = 0.5;
+            ground.material = eash.shader(eash.map({ ref1: '/images/w.jpg', t1: '0.5' }), scene);
+            ground.helperMaterial  = eash.shader(eash.solid(0x000000), scene); 
 
-            //eash.linerPostProcess(eash.filters.pointedBlur({ r: 0.5, d: 0.005 }), camera, 0.2);
+             // Render target
+             renderTarget = new BABYLON.RenderTargetTexture("depth", 512, scene);
+             renderTarget.renderList.push(ground, sphere);
+             scene.customRenderTargets.push(renderTarget);
+             
+             renderTarget.onBeforeRender = function () {
+                 for (var index = 0; index < renderTarget.renderList.length; index++) {
+                     renderTarget.renderList[index]._savedMaterial = renderTarget.renderList[index].material;
+                     renderTarget.renderList[index].material = renderTarget.renderList[index].helperMaterial;
+                 }
+             }
+
+             renderTarget.onAfterRender = function () {
+                 for (var index = 0; index < renderTarget.renderList.length; index++) {
+                  
+                     renderTarget.renderList[index].material = renderTarget.renderList[index]._savedMaterial;
+                 }
+             }
+             
+             var pps1 = eash.linerPostProcess(eash.ppsMap(0), camera);
+
+             eash.linerPostProcess(eash.cameraLayer(1) , camera, {
+                apply: function (ef) {
+                    ef.setTexture('ref1', renderTarget);
+                }
+            });
+
+             eash.linerPostProcess(eash.directionBlur({
+                 dir: { x: 1., y: 0.0 }, custom: function (dir, step, alpha) {
+                     return eash.reference('ref', eash.cameraShot({ uv: 'uv+' + dir })) + eash.replace({ type: black, area: 0, opacity: 0.48, mat: eash.solid(0x000000, 0.0) });
+                 } , percent:10. }), camera, { scale: 0.75 });
+
+             eash.linerPostProcess(eash.directionBlur({ dir: { x: 0., y: 1.0 }, percent: 10. }), camera, { scale: 0.75 });
+             var pps2 = eash.linerPostProcess(eash.directionBlur({ dir: { x: 0., y: 1.0 }, percent: 10. }), camera, { scale: 0.75 });
+
+             
+            eash.linerPostProcess(eash.multi([eash.cameraLayer(2), { r: eash.cameraShot(), e: 3.0 }]), camera, {
+                apply: function (ef) {
+                    ef.setTextureFromPostProcess('ref2', pps1); 
+                }
+            }); 
 
 
-            eash.postProcess_EnableMultiLayer(eash.linerPostProcess(
-               eash.cameraShot({ uv: 'vec2(1.0)-uv ' })
-               + 'result = vec4(result.x);',
-                camera, { scale: 1.0, isFirst: true }));
-
-            eash.postProcess_EnableMultiLayer(eash.linerPostProcess(
-                     eash.cameraLayer(1)  ,
-              camera, { scale: 1.0 }));
-
-         
 
 
-
-
-            //eash.linerPostProcess(eash.pointedBlur({ r: 3.5, d: 0.0025,l:0.5}), camera, 0.17);
-            //eash.linerPostProcess(eash.pointedBlur({ r: 2.5, d: 0.0025,l:0.5}), camera, 0.17);
 
             return scene;
 

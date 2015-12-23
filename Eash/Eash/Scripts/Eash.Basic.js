@@ -35,7 +35,7 @@ eash.light = function (op) {
       "  result  += vec4( c1_" + k + "_.xyz*(1.0-ls_" + k + "_)*" + _cs(def(op.c, 1.0)) + "  ,1.0-ls_" + k + "_);                    ",
     ].join('\n');
 }
-  
+
 eash.flash = function (op) {
     var k = eash.ind++;
 
@@ -112,7 +112,7 @@ eash.back = function (mat) {
     eash.globalOption = def(eash.globalOption, {});
     eash.globalOption.back = true;
     return 'if(' + eash.fback + '){' + def(mat, 'discard') + ';}';
-} 
+}
 
 eash.front = function (mat) {
     eash.globalOption = def(eash.globalOption, {});
@@ -124,7 +124,7 @@ eash.wire = function (p) {
     eash.globalOption = def(eash.globalOption, {});
     eash.globalOption.wire = true;
     return "";
-} 
+}
 
 eash.range = function (op) {
     var k = eash.ind++;
@@ -270,6 +270,74 @@ eash.effect = function (op) {
 
      'result = res_' + k + '_ ;'
     ].join('\n');
+}
+
+eash.reference = function (name , mat) {
+    name = def(name, 'ref');
+    mat = def(mat, '');
+
+    if (name != 'ref') {
+        var k = eash.ind++;
+
+        return 'vec4 res_' + name + '_ = result; ' + mat + " ref = result; result = res_" + name + "_; ";
+    }
+    else return mat + " ref = result; ";
+}
+ 
+eash.replace = function (op) {
+    var k = eash.ind++;
+
+    op = def(op, {});
+    op.type = def(op.type, red);
+    op.mat = def(op.mat, eash.solid(0xff00ff));
+    op.area = def(op.area, -0.233);
+    op.opacity = def(op.opacity, 0.0);
+    op.level = def(op.level, 0.0);
+    op.levelCount = def(op.levelCount, 1.0);
+    op.levelFill = def(op.levelFill, false);
+    op.live = def(op.live, false);
+
+
+    if (op.live) {
+        eash.reference();
+    }
+
+    var d = op.area;
+    var d2 = op.opacity;
+    var d3 = op.level;
+    var d4 = op.levelCount;
+    var ilg = op.levelFill;
+
+    var lg = " > 0.5 + " + _cs(d) + " ";
+    var lw = " < 0.5 - " + _cs(d) + " ";
+    var rr = "((ref.x*" + _cs(d4) + "-" + _cs(d3) + ")>1.0 ? 0. : max(0.,(ref.x*" + _cs(d4) + "-" + _cs(d3) + ")))";
+    var rg = "((ref.y*" + _cs(d4) + "-" + _cs(d3) + ")>1.0 ? 0. : max(0.,(ref.y*" + _cs(d4) + "-" + _cs(d3) + ")))";
+    var rb = "((ref.z*" + _cs(d4) + "-" + _cs(d3) + ")>1.0 ? 0. : max(0.,(ref.z*" + _cs(d4) + "-" + _cs(d3) + ")))";
+    if (ilg) {
+        rr = "min(1.0, max(0.,(ref.x*" + _cs(d4) + "-" + _cs(d3) + ")))";
+        rg = "min(1.0, max(0.,(ref.y*" + _cs(d4) + "-" + _cs(d3) + ")))";
+        rb = "min(1.0, max(0.,(ref.z*" + _cs(d4) + "-" + _cs(d3) + ")))";
+
+    }
+    var a = " && ";
+    var p = " + ";
+
+    var r = "";
+    var cond = "";
+
+    switch (op.type) {
+        case white: cond = rr + lg + a + rg + lg + a + rb + lg; r = "(" + rr + p + rg + p + rb + ")/3.0"; break;
+        case cyan: cond = rr + lw + a + rg + lg + a + rb + lg; r = "(" + rg + p + rb + ")/2.0 - (" + rr + ")/1.0"; break;
+        case pink: cond = rr + lg + a + rg + lw + a + rb + lg; r = "(" + rr + p + rb + ")/2.0 - (" + rg + ")/1.0"; break;
+        case yellow: cond = rr + lg + a + rg + lg + a + rb + lw; r = "(" + rr + p + rg + ")/2.0 - (" + rb + ")/1.0"; break;
+        case blue: cond = rr + lw + a + rg + lw + a + rb + lg; r = "(" + rb + ")/1.0 - (" + rr + p + rg + ")/2.0"; break;
+        case red: cond = rr + lg + a + rg + lw + a + rb + lw; r = "(" + rr + ")/1.0 - (" + rg + p + rb + ")/2.0"; break;
+        case green: cond = rr + lw + a + rg + lg + a + rb + lw; r = "(" + rg + ")/1.0 - (" + rr + p + rb + ")/2.0"; break;
+        case black: cond = rr + lw + a + rg + lw + a + rb + lw; r = "1.0-(" + rr + p + rg + p + rb + ")/3.0"; break;
+    }
+
+    return " if( " + cond + " ) { vec4 oldrs_" + k + "_ = vec4(result);float al_" + k + "_ = max(0.0,min(1.0," + r + "+(" + _cs(d2) + "))); float  l_" + k + "_ =  1.0-al_" + k + "_;  " + op.mat + " result = result*al_" + k + "_ +  oldrs_" + k + "_ * l_" + k + "_;    }";
+
 }
 
 eash.vertex = function (s) {
